@@ -9,9 +9,10 @@ import calendar as cal
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
 
-date_format = "%b %#d, %Y"  # "%b %#d, %Y" for windows, "%b %-d, %Y" for linux
+date_format = "%b %-d, %Y"  # "%b %#d, %Y" for windows, "%b %-d, %Y" for linux
 
-def copy_in_columns(my_sheet):
+
+def read_in_columns(my_sheet):
     """ Gets the rows from a spreadsheet and then transposes them so the array index is in columns """
     my_list = []
     for row in my_sheet.iter_rows():
@@ -20,6 +21,14 @@ def copy_in_columns(my_sheet):
             temp_list.append(my_cell.value)
         my_list.append(temp_list)
     col_list = list(map(list, zip(*my_list)))  # transpose array to make it by column instead of row
+
+    # remove null data at ends of columns
+    for c, col in enumerate(col_list):
+        temp = []
+        for cell in col:
+            if cell is not None:
+                temp.append(cell)
+        col_list[c] = temp
     return col_list
 
 
@@ -42,7 +51,7 @@ def monthStart(date):
 
 def fill_in_data(data, col):
     # interpolate quarterly and annual data to fill in all months.
-    print("length of arrays: ", len(data[col]), len(data[col+1]), "col = ", col)
+    # print("length of arrays: ", len(data[col]), len(data[col+1]), "col = ", col)
     # create empty arrays for interpolated date and data
     newDate = []
     newData = []
@@ -97,7 +106,11 @@ def fill_in_data(data, col):
 
     # fill in missing dates and data at the top of the column
     # find where the first date is located in reference date list
-    datePlace = data[0].index(newDate[0])
+    try:
+        datePlace = data[0].index(newDate[0])
+    except:
+        print("### new date not found in column 0. Make sure line 12 has the correct date format for operating system")
+        raise
     print("Starting date position: " + str(datePlace))
     z = 0
     while z < datePlace:
@@ -108,7 +121,7 @@ def fill_in_data(data, col):
 
     # replace the original list with the newly created list
 
-    print("length of interpolated date and data = ", len(newDate), len(newData))
+    print("column = ", col, ", length of interpolated date and data = ", len(newDate), len(newData))
     # print('newDate', len(newDate), newDate)
     # print('newData', len(newData), newData)
     return newDate, newData
@@ -132,37 +145,28 @@ def write_to_file(data_l, out_file, all_dates=False):
     wbo.save(out_file)
 
 
-# os.chdir('/home/ray/Documents/programming/python/stocks/web_scraping') # set working directory
-filename = 'scrape_' + str(dt.date.today()) + '.xlsx'
-# filename = 'scrape_2018-02-06.xlsx'
-sheetName = "data"
-print("filename = " + filename)
+if __name__ == '__main__':
 
-wb = load_workbook(filename)
-ws = wb.get_sheet_by_name(sheetName)
+    filename = 'data/scrape_' + str(dt.date.today()) + '.xlsx'
+    # filename = 'scrape_2018-02-06.xlsx'
+    sheetName = "data"
+    print("input filename = " + filename)
 
-data_list = copy_in_columns(ws)  # data[row,column]
-# print('data', data[:10])
+    wb = load_workbook(filename)
+    ws = wb.get_sheet_by_name(sheetName)
 
-print('shortest list', len(min(data_list, key=len)))
-print('shortest list2', len(min(data_list, key=lambda coll: len(coll))))
-print('shortest list3', min([len(ls) for ls in data_list]))
+    data_list = read_in_columns(ws)  # data[row,column]
 
-for ls in data_list:
-    print("array length", len(ls))
+    # send each date/data pair to 'fill_in_data()' to interpolate the missing months
+    cols = 2  # S&P price is the reference so don't do the first column date/data pair
+    while cols < len(data_list):
+        filled = fill_in_data(data_list, cols)
+        data_list[cols] = filled[0]
+        data_list[cols + 1] = filled[1]
+        cols += 2
 
-# colMax = 22
-# send each date/data pair to 'fill_in_data()' to interpolate the missing months
-cols = 2  # S&P price is the reference so don't do the first column date/data pair
-while cols < len(data_list):
-    filled = fill_in_data(data_list, cols)
-    data_list[cols] = filled[0]
-    data_list[cols + 1] = filled[1]
-    cols += 2
+    # output to a new spreadsheet
+    output_file = 'data/clean_' + str(dt.date.today()) + '.xlsx'
 
-# output to a new spreadsheet
-# output_file = 'clean_' + filename
-output_file = 'clean_' + str(dt.date.today()) + '.xlsx'
-
-# If 'all_dates' is true, the date for each vector is written to the file for debug.
-write_to_file(data_list, output_file, all_dates=False)
+    # If 'all_dates' is true, the date for each data column is written to the file for debug.
+    write_to_file(data_list, output_file, all_dates=False)

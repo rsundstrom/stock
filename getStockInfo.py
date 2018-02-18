@@ -70,7 +70,7 @@ print("Path at terminal when executing this file")
 print(os.getcwd() + "\n")
 
 # os.chdir('/home/ray/Documents/programming/python/stocks/web_scraping')  # windows directory
-filename = 'scrape_' + str(dt.date.today()) + '.xlsx'
+filename = 'data/scrape_' + str(dt.date.today()) + '.xlsx'
 print("filename = " + filename)
 
 wb = Workbook()

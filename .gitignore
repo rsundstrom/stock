@@ -2,3 +2,5 @@
 *.xls
 *.csv
 /data/*
+*__pycache__
+
